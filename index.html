@@ -1,0 +1,334 @@
+<title>Gale Tower</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#15132b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: arcade cabinet column, same family as Crate Drop Dash. Title strip, game screen, touch pad, key card. Single dark look by choice. */
+:root{
+  --bg:#15132b; --panel:#211e42; --line:#37336a; --fg:#f3eedd; --muted:#aaa4cb;
+  --brick:#d8704f; --gold:#ffd34e; --sky:#5aa9e6;
+  --display:"Silkscreen","Courier New",monospace;
+  --body:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);margin:0;letter-spacing:.02em;text-wrap:balance}
+h1 span{color:var(--brick)}
+.tag{color:var(--muted);font-size:15px}
+.hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hdrbtn{font-family:var(--display);font-size:12px;color:var(--fg);background:var(--panel);border:2px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+.hdrbtn:hover{border-color:var(--gold)}
+.hdrbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.screen{position:relative;border:4px solid var(--line);border-radius:6px;background:#000;box-shadow:0 0 0 4px #0c0b1c,0 18px 40px rgba(0,0,0,.45);max-width:100%}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;image-rendering:pixelated;image-rendering:crisp-edges;outline:none;cursor:pointer;touch-action:none}
+canvas:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.touch{display:flex;gap:8px;user-select:none;-webkit-user-select:none}
+.touch button{min-width:0;flex:0 0 72px;font-family:var(--display);font-size:20px;color:var(--fg);background:var(--panel);border:2px solid var(--line);border-bottom-width:5px;border-radius:8px;min-height:64px;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.touch button small{font-family:var(--body);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.touch .gap{flex:1}
+.touch .pause{flex-basis:52px}
+.touch .build{flex-basis:132px;border-color:var(--brick)}
+.touch button.on{background:var(--gold);color:var(--bg);border-bottom-width:2px;transform:translateY(3px)}
+.touch button.on small{color:var(--bg)}
+.touch .build.on{background:var(--brick)}
+@media (max-width:520px){.touch button{flex-basis:60px;min-height:56px}.touch .build{flex-basis:104px}.touch .pause{flex-basis:44px}}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:10px;min-width:0}
+.card h2{font-family:var(--display);font-size:15px;margin:0;letter-spacing:.06em;color:var(--brick)}
+.grid{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center;font-size:14px}
+kbd{font-family:var(--display);font-size:12px;background:#0f0e22;border:1px solid var(--line);border-bottom-width:3px;border-radius:4px;padding:1px 6px;color:var(--fg);white-space:nowrap}
+.note{color:var(--muted);font-size:14px;margin:0;line-height:1.5;max-width:70ch}
+.note b{color:var(--fg);font-weight:600}
+.rotate{display:none;color:var(--gold);font-size:14px;margin:0;text-align:center}
+body.fs{padding-block:6px}
+body.fs header,body.fs .note,body.fs .card,body.fs .rotate{display:none!important}
+body.fs .wrap{gap:6px;max-width:none}
+body.fs .screen{width:min(100%,calc((100dvh - 24px) * 16 / 9));margin:0 auto}
+body.fs.touchdev .screen{width:min(100%,calc((100dvh - 96px) * 16 / 9))}
+@media (pointer:coarse){.card{display:none}}
+@media (pointer:coarse) and (orientation:portrait){.rotate{display:block}}
+@media (pointer:coarse) and (orientation:landscape){
+  body{padding-block:8px} header,.note{display:none} .wrap{gap:8px}
+  .screen{width:min(100%,calc((100dvh - 100px) * 16 / 9));margin:0 auto}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Gale <span>Tower</span></h1>
+    <div class="hdr-right"><div class="tag">1 player · keyboard or touch</div><button class="hdrbtn" data-fs type="button">Full screen</button></div>
+  </header>
+  <div class="screen"><canvas id="game" tabindex="0" aria-label="Gale Tower game screen. Press Space to start."></canvas></div>
+  <p class="rotate">Turn your phone sideways for a bigger screen</p>
+  <div class="touch" id="touch" hidden>
+    <button data-k="l" aria-label="Walk left">◀</button>
+    <button data-k="r" aria-label="Walk right">▶</button>
+    <span class="gap"></span>
+    <button class="pause" data-k="p" aria-label="Pause">II</button>
+    <button class="build" data-k="b">▲<small>build</small></button>
+  </div>
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="grid">
+      <span><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd></span><span>Walk along the top brick</span>
+      <span><kbd>Space</kbd> <kbd>↑</kbd> <kbd>W</kbd></span><span>Hop and lay a brick under your feet</span>
+      <span><kbd>Esc</kbd> <kbd>M</kbd> <kbd>F</kbd></span><span>Pause · sound · full screen</span>
+    </div>
+  </div>
+  <p class="note">Every brick goes down where you stand, so <b>where you stand is how the tower leans</b>. 5 bricks make 1 m. Every 10 m a steel band locks everything below it and the <b>wind shifts</b>, getting stronger as you climb. Wind pushes the unbanded section over: lean it into the wind to balance. Watch the <b>sway</b> meter and the ghost brick colour. The forecast in the corner tells you the next wind before it arrives. Wind also drifts you mid-hop, so land on the brick.</p>
+</div>
+
+<script>
+(()=>{
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const S=3,W=320,H=180,BH=4,BW=16,GROUND=26,ZONE=50,PM=1.5;
+cv.width=W*S;cv.height=H*S;
+const buf=document.createElement('canvas');buf.width=W;buf.height=H;const g=buf.getContext('2d');
+ctx.imageSmoothingEnabled=false;g.imageSmoothingEnabled=false;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t;
+const hash=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+function mk(w,h,fn){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');fn(x);return c}
+
+/* ---------- textures ---------- */
+function brickTex(base,hi,lo,mortar){return mk(16,4,x=>{x.fillStyle=base;x.fillRect(0,0,16,4);x.fillStyle=hi;x.fillRect(0,0,7,1);x.fillRect(8,0,8,1);x.fillStyle=lo;x.fillRect(1,2,4,1);x.fillRect(10,2,5,1);x.fillStyle=mortar;x.fillRect(0,3,16,1);x.fillRect(7,0,1,3)})}
+const TEX={
+  brick:brickTex('#b5482f','#d8704f','#8f3522','#d9c9ab'),
+  cured:brickTex('#8a3a2a','#a4513a','#6c2a1e','#a89a82'),
+  fresh:brickTex('#ffd0a8','#fff1e0','#e8a882','#ffffff'),
+  band:mk(16,4,x=>{x.fillStyle='#5a6175';x.fillRect(0,0,16,4);x.fillStyle='#a3abc0';x.fillRect(0,0,16,1);x.fillStyle='#e0e4ee';[1,5,10,14].forEach(i=>x.fillRect(i,2,1,1));x.fillStyle='#3d4256';x.fillRect(0,3,16,1)}),
+  found:mk(48,4,x=>{x.fillStyle='#6b6f8f';x.fillRect(0,0,48,4);x.fillStyle='#8d92b3';x.fillRect(0,0,48,1);x.fillStyle='#4f5370';x.fillRect(0,3,48,1);[11,23,35].forEach(i=>x.fillRect(i,0,1,3))}),
+  cloud:[mk(30,10,x=>{x.fillStyle='#fff';x.fillRect(6,4,20,6);x.fillRect(9,1,8,9);x.fillRect(16,2,7,8);x.fillRect(2,6,26,4)}),
+         mk(22,8,x=>{x.fillStyle='#fff';x.fillRect(3,3,16,5);x.fillRect(6,0,7,8);x.fillRect(0,5,22,3)})]
+};
+
+/* ---------- builder sprite ---------- */
+const UP=["...yyyy...","..yyyyyy..",".yyyyyyyy.","..ssssss..","..sssses..","..ssssss..","..oobboo..",".soobboos.",".soobboos.","..oooooo.."];
+const LEGS={
+  stand:["..pp..pp..","..pp..pp..","..pp..pp..","..pp..pp..",".kkk..kkk.",".kkk..kkk."],
+  walk1:["..pp..pp..",".pp....pp.",".pp....pp.","pp......pp","kk......kk","kk......kk"],
+  walk2:["..pppppp..","...pppp...","...pp.pp..","...pp.pp..","..kkk.kkk.","..kkk.kkk."],
+  jump:["..pppppp..",".ppp..ppp.","pp......pp","kk.....kk.","kk........",".........."]
+};
+const PAL={y:'#ffd34e',s:'#f2c79b',e:'#231a36',o:'#ff8a3d',b:'#3ec9c0',p:'#34407e',k:'#231a36'};
+function sprite(rows){const h=rows.length,w=rows[0].length;return mk(w,h,x=>{for(let y=0;y<h;y++)for(let i=0;i<w;i++){const c=rows[y][i];if(PAL[c]){x.fillStyle=PAL[c];x.fillRect(i,y,1,1)}}})}
+function flip(c){return mk(c.width,c.height,x=>{x.translate(c.width,0);x.scale(-1,1);x.drawImage(c,0,0)})}
+const SPR={};for(const k in LEGS){const r=sprite(UP.concat(LEGS[k]));SPR[k]=[flip(r),r]}
+
+/* ---------- sky ---------- */
+const SKY=[{m:0,top:[90,169,230],bot:[196,232,255]},{m:35,top:[96,112,196],bot:[255,182,128]},{m:70,top:[44,34,92],bot:[196,104,140]},{m:110,top:[16,14,36],bot:[42,34,88]}];
+function skyAt(m){let i=0;while(i<SKY.length-2&&m>SKY[i+1].m)i++;const A=SKY[i],B=SKY[i+1],t=clamp((m-A.m)/(B.m-A.m),0,1);return{top:A.top.map((v,j)=>v+(B.top[j]-v)*t),bot:A.bot.map((v,j)=>v+(B.bot[j]-v)*t)}}
+const rgb=(a,b,t)=>`rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;
+
+/* ---------- audio ---------- */
+let ac=null,muted=false;
+function au(){if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume()}
+function tone(f,d,type='square',v=.06,f2){if(!ac||muted)return;const t=ac.currentTime,o=ac.createOscillator(),gn=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);gn.gain.setValueAtTime(v,t);gn.gain.exponentialRampToValueAtTime(.0008,t+d);o.connect(gn).connect(ac.destination);o.start(t);o.stop(t+d+.02)}
+function noise(d,v=.1,freq=800,q=1){if(!ac||muted)return;const t=ac.currentTime,n=Math.floor(ac.sampleRate*d),b=ac.createBuffer(1,n,ac.sampleRate),a=b.getChannelData(0);for(let i=0;i<n;i++)a[i]=Math.random()*2-1;const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;const gn=ac.createGain();gn.gain.setValueAtTime(.0008,t);gn.gain.linearRampToValueAtTime(v,t+d*.3);gn.gain.exponentialRampToValueAtTime(.0008,t+d);s.connect(f).connect(gn).connect(ac.destination);s.start(t)}
+const SFX={
+  place(){tone(220,.05,'square',.05,110);noise(.06,.08,1800,2)},
+  land(){tone(110,.04,'triangle',.08)},
+  meter(){tone(880,.07,'square',.035);setTimeout(()=>tone(1175,.08,'square',.03),60)},
+  zone(){noise(1.4,.14,420,.7);[523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.14,'square',.04),i*110))},
+  creak(){tone(60+Math.random()*40,.12,'sawtooth',.03,45)},
+  crash(){noise(1.6,.22,180,.6);tone(220,.9,'sawtooth',.07,38)},
+  fall(){tone(600,.7,'square',.05,90)}
+};
+
+/* ---------- state ---------- */
+let mode='title',bricks,P,debris,t=0,wind,next,zone,base,danger,camX,camY,cloudOff,banner,overT,reason,lastMeter,creakT,st={s:0,k:-1,dir:1},weff=0;
+let best=0,final=0;try{best=+localStorage.getItem('galeTowerBest')||0}catch(e){}
+const streaks=Array.from({length:42},(_,i)=>({x:hash(i)*W,y:hash(i+50)*H,l:2+hash(i+99)*5}));
+function genWind(z){const str=z===0?.45:Math.min(.5+.3*z,3);return(Math.random()<.5?-1:1)*str*(.8+Math.random()*.2)}
+const kmh=v=>Math.round(Math.abs(v)*22);
+function bft(v){const k=kmh(v),T=[1,6,12,20,29,39,50,62,75,89,103,118];let b=0;while(b<T.length&&k>=T[b])b++;return b}
+function reset(){
+  bricks=[{x:0,w:48,f:1}];P={x:0,y:BH,vy:0,vx:0,air:false,face:1,walk:0,fall:false};
+  debris=[];zone=0;base=0;danger=0;camX=0;camY=0;cloudOff=0;banner=null;overT=0;reason='';lastMeter=0;creakT=0;
+  const w0=genWind(0);wind={v:w0*.5,target:w0};next=genWind(1);
+}
+reset();
+const heightM=()=>(bricks.length-1)/5;
+
+/* Stability: for every joint above the last steel band, compare the centre of mass
+   of everything above it (plus wind push, which grows with the load above) to the
+   brick it rests on. 1.0 = right at the edge. */
+function stress(extraX){
+  const n=bricks.length+(extraX!=null?1:0),get=i=>i<bricks.length?bricks[i]:{x:extraX,w:BW};
+  let sx=0,m=0;if(!P.fall){sx=P.x*PM;m=PM}
+  let s=0,k0=-1,dir=1;
+  for(let k=n-2;k>=base;k--){const b=get(k+1);sx+=b.x;m++;const c=sx/m+weff*.11*(n-1-k),bk=get(k),v=Math.abs(c-bk.x)/(bk.w/2);if(v>s){s=v;k0=k;dir=Math.sign(c-bk.x)||1}}
+  return{s,k:k0,dir};
+}
+
+/* ---------- input ---------- */
+const keys={l:false,r:false};let buildQ=false;
+function press(){au();if(mode==='title'||(mode==='over'&&overT>.6)){reset();mode='play';return}if(mode==='paused'){mode='play';return}if(mode==='play')buildQ=true}
+function pause(){if(mode==='play')mode='paused';else if(mode==='paused')mode='play'}
+const KL=['ArrowLeft','KeyA'],KR=['ArrowRight','KeyD'],KB=['Space','ArrowUp','KeyW'];
+addEventListener('keydown',e=>{const c=e.code;
+  if(KL.includes(c)){keys.l=true;e.preventDefault()}
+  else if(KR.includes(c)){keys.r=true;e.preventDefault()}
+  else if(KB.includes(c)){if(!e.repeat)press();e.preventDefault()}
+  else if(c==='Enter'){press()}
+  else if(c==='Escape'||c==='KeyP')pause();
+  else if(c==='KeyM')muted=!muted;
+  else if(c==='KeyF')toggleFs();
+});
+addEventListener('keyup',e=>{if(KL.includes(e.code))keys.l=false;if(KR.includes(e.code))keys.r=false});
+addEventListener('blur',()=>{keys.l=keys.r=false;if(mode==='play')mode='paused'});
+cv.addEventListener('pointerdown',()=>{cv.focus();press()});
+const touch=document.getElementById('touch');
+if(matchMedia('(pointer:coarse)').matches){touch.hidden=false;document.body.classList.add('touchdev')}
+touch.querySelectorAll('button').forEach(b=>{const k=b.dataset.k;
+  const down=e=>{e.preventDefault();au();b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}
+    if(k==='l')keys.l=true;else if(k==='r')keys.r=true;else if(k==='b')press();else if(k==='p')pause()};
+  const up=()=>{b.classList.remove('on');if(k==='l')keys.l=false;if(k==='r')keys.r=false};
+  b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
+});
+function toggleFs(){const on=!document.body.classList.contains('fs');document.body.classList.toggle('fs',on);
+  try{if(on&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});else if(!on&&document.fullscreenElement)document.exitFullscreen().catch(()=>{})}catch(e){}}
+document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',toggleFs));
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)document.body.classList.remove('fs')});
+
+/* ---------- update ---------- */
+function collapse(k,dir){
+  const n=bricks.length;
+  for(let j=k+1;j<n;j++){const b=bricks[j],f=(j-k)/(n-k);debris.push({x:b.x,y:j*BH,vx:dir*(12+Math.random()*28)*(0.5+f)+weff*12,vy:Math.random()*25,r:0,vr:dir*(1+Math.random()*3)*(0.4+f),tex:b.band?TEX.band:TEX.brick})}
+  reason='TOWER TOPPLED';endGame();bricks.length=k+1;P.fall=true;P.air=true;P.vx=dir*30+weff*15;P.vy=40;SFX.crash();
+}
+function endGame(){mode='over';overT=0;const h=final=heightM();if(h>best){best=h;try{localStorage.setItem('galeTowerBest',best)}catch(e){}}}
+function update(dt){
+  t+=dt;
+  wind.v=lerp(wind.v,wind.target,clamp(dt*1.1,0,1));
+  weff=wind.v*(1+.3*Math.sin(t*1.3)+.15*Math.sin(t*3.7+1));
+  cloudOff+=weff*8*dt;
+  for(const s of streaks){s.x+=(weff*110+Math.sign(weff||1)*15)*dt*(0.6+s.l/8);if(s.x>W+10)s.x=-10;if(s.x<-10)s.x=W+10}
+  if(banner){banner.t-=dt;if(banner.t<=0)banner=null}
+  if(mode==='over')overT+=dt;
+  if(mode==='play'||mode==='over'){
+    for(const d of debris){if(d.rest)continue;d.vy-=300*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;d.r+=d.vr*dt;if(d.y<=0){d.y=0;d.vy=0;d.vx=0;d.vr=0;d.rest=1}}
+  }
+  if(mode!=='play'&&!(mode==='over'&&P.fall))return;
+  const top=bricks[bricks.length-1],topY=bricks.length*BH;
+  if(P.fall){P.vy-=300*dt;P.x+=P.vx*dt;P.y+=P.vy*dt;if(P.y<0){P.y=0;P.vx=0;P.vy=0}return}
+  const dir=(keys.r?1:0)-(keys.l?1:0);if(dir)P.face=dir>0?1:0;
+  if(!P.air){
+    P.x+=dir*42*dt+weff*7*dt;P.walk+=dir?dt:0;
+    if(Math.abs(P.x-top.x)>top.w/2+2){P.fall=true;P.air=true;P.vx=Math.sign(P.x-top.x)*25+weff*10;P.vy=20;reason='BLOWN OFF THE TOP';SFX.fall();endGame();return}
+    if(buildQ){
+      buildQ=false;bricks.push({x:Math.round(P.x),w:BW,born:t});P.vy=80;P.air=true;SFX.place();
+      if(Math.floor(heightM())>lastMeter){lastMeter=Math.floor(heightM());SFX.meter()}
+      if(Math.floor((bricks.length-1)/ZONE)>zone){
+        zone++;base=bricks.length-1;bricks[base].band=true;wind.target=next;next=genWind(zone+1);
+        banner={t:2.6,text:`${zone*10} M · WIND SHIFT`,v:wind.target};SFX.zone();
+      }
+    }
+  }else{
+    P.vy-=320*dt;P.y+=P.vy*dt;P.x+=(dir*30+weff*16)*dt;
+    const nt=bricks[bricks.length-1],ny=bricks.length*BH;
+    if(P.vy<0&&P.y<=ny){
+      if(Math.abs(P.x-nt.x)<=nt.w/2+2){P.y=ny;P.vy=0;P.air=false;SFX.land()}
+      else if(P.y<ny-4){P.fall=true;P.vx=Math.sign(P.x-nt.x)*20+weff*10;reason='MISSED THE BRICK';SFX.fall();endGame();return}
+    }
+  }
+  buildQ=false;
+  st=stress();
+  if(st.s>1){danger+=dt;if(danger>.4){collapse(st.k,st.dir);return}}else danger=Math.max(0,danger-dt*2);
+  if(st.s>.75){creakT-=dt;if(creakT<=0){SFX.creak();creakT=.35+(1-Math.min(st.s,1))*1.2}}
+}
+
+/* ---------- draw ---------- */
+const sx=x=>Math.round(W/2+x-camX),sy=y=>Math.round(H-GROUND-(y-camY));
+function stressCol(s){return s<.55?'#5fd36e':s<.85?'#ffd34e':'#ff5a4e'}
+function draw(dt){
+  if(!P.fall){camY=lerp(camY,Math.max(0,P.y-62),clamp(dt*5,0,1));camX=lerp(camX,P.x*.85,clamp(dt*4,0,1))}
+  const m=camY/20,sk=skyAt(m),night=clamp((m-55)/45,0,1);
+  for(let i=0;i<18;i++){g.fillStyle=rgb(sk.top,sk.bot,i/17);g.fillRect(0,i*10,W,10)}
+  if(night>0){for(let i=0;i<70;i++){g.globalAlpha=night*(.4+.6*hash(i+7))*(reduce?1:(.75+.25*Math.sin(t*2+i)));g.fillStyle='#fff';g.fillRect(Math.floor(hash(i)*W),Math.floor((hash(i+200)*H*1.6+camY*.05)%H),1,1)}g.globalAlpha=1}
+  // far skyline
+  const sb=H-GROUND+camY*.35;
+  if(sb<H+80){for(let i=0;i<18;i++){const bx=Math.round(i*22-((camX*.25)%22+22)%22-10),bh=18+hash(i+Math.floor((camX*.25)/22))*40;g.fillStyle=rgb([126,146,200],[40,36,80],clamp(m/40,0,1));g.fillRect(bx,Math.round(sb-bh),18,Math.round(bh)+40);
+    g.fillStyle='rgba(255,224,140,.55)';for(let wy=6;wy<bh-4;wy+=6)for(let wx=3;wx<16;wx+=5)if(hash(i*31+wy*7+wx)>.6)g.fillRect(bx+wx,Math.round(sb-bh+wy),2,2)}}
+  // clouds (parallax .6)
+  const cy0=camY*.6,b0=Math.floor((cy0-40)/70),b1=Math.floor((cy0+H+40)/70);
+  g.globalAlpha=.85-night*.55;
+  for(let b=Math.max(1,b0);b<=b1;b++){const wy=b*70+hash(b)*30,span=W+80,px=((hash(b+.5)*span+cloudOff*(.5+hash(b+3))-camX*.6)%span+span)%span-40;g.drawImage(TEX.cloud[b%2],Math.round(px),Math.round(H-GROUND-(wy-cy0)))}
+  g.globalAlpha=1;
+  // ground
+  const gy=sy(0);
+  if(gy<H){g.fillStyle='#4fa83d';g.fillRect(0,gy,W,3);g.fillStyle='#7bd35a';g.fillRect(0,gy,W,1);g.fillStyle='#8a5536';g.fillRect(0,gy+3,W,H-gy);g.fillStyle='#6e4029';for(let i=0;i<40;i++){const x=Math.round(((hash(i)*W*2-camX)%W+W)%W);g.fillRect(x,gy+5+Math.floor(hash(i+9)*20),2,1)}}
+  // 10 m lines + ruler
+  for(let z=1;;z++){const y=sy(z*ZONE*BH);if(y<-4)break;if(y>H)continue;g.fillStyle='rgba(255,255,255,.35)';for(let x=0;x<W;x+=6)g.fillRect(x,y,3,1)}
+  for(let mm=Math.max(0,Math.floor((camY-40)/20));mm<=Math.ceil((camY+H)/20);mm++){const y=sy(mm*20);g.fillStyle='rgba(255,255,255,.55)';g.fillRect(W-4-(mm%5===0?4:0),y,mm%5===0?8:4,1)}
+  // tower
+  const n=bricks.length,shake=danger>0&&!reduce?1:0;
+  const off=j=>{if(j<=base)return 0;const d=(j-base)/ZONE;return weff*1.6*d*d+(shake?(Math.random()<.5?-1:1)*danger*2:0)};
+  const cut=Math.max(0,Math.floor((camY-40)/BH));
+  for(let j=cut;j<n;j++){const b=bricks[j],y=sy((j+1)*BH);if(y>H)continue;if(y<-6)break;const o=Math.round(off(j));
+    let tex=b.f?TEX.found:b.band?TEX.band:j<base?TEX.cured:(t-(b.born||0)<.12?TEX.fresh:TEX.brick);
+    g.drawImage(tex,sx(b.x)+o-b.w/2,y)}
+  if(st.s>.85&&st.k>=0&&mode==='play'){const y=sy((st.k+1)*BH),b=bricks[st.k];g.fillStyle='rgba(255,90,78,'+(.4+.4*Math.sin(t*20))+')';g.fillRect(sx(b.x)+Math.round(off(st.k))-b.w/2,y+3,b.w,1)}
+  // ghost brick
+  if(mode==='play'&&!P.air){const gx=Math.round(P.x),ps=stress(gx),y=sy(P.y+BH),x0=sx(gx)+Math.round(off(n))-8;g.fillStyle=stressCol(ps.s);g.globalAlpha=.75;g.fillRect(x0,y,16,1);g.fillRect(x0,y+3,16,1);g.fillRect(x0,y,1,4);g.fillRect(x0+15,y,1,4);g.globalAlpha=1}
+  // debris
+  for(const d of debris){const y=sy(d.y+BH/2);if(y>H+10||y<-10)continue;g.save();g.translate(sx(d.x),y);g.rotate(d.r);g.drawImage(d.tex,-8,-2);g.restore()}
+  // builder
+  const fr=P.air?'jump':(Math.abs(P.walk)>0&&(keys.l||keys.r))?(Math.floor(t*10)%2?'walk1':'walk2'):'stand';
+  const po=P.fall?0:Math.round(off(n-1));
+  g.save();if(P.fall){g.translate(sx(P.x),sy(P.y)-8);g.rotate(t*6*(P.vx>=0?1:-1));g.drawImage(SPR.jump[P.face],-5,-8)}else g.drawImage(SPR[fr][P.face],sx(P.x)+po-5,sy(P.y)-16);g.restore();
+  // wind streaks
+  const a=clamp(Math.abs(weff)/2.5,.08,.6);g.fillStyle=`rgba(255,255,255,${a})`;
+  for(const s of streaks){const L=Math.round(s.l+Math.abs(weff)*4);g.fillRect(Math.round(s.x)-(weff<0?0:L),Math.round(s.y),L,1)}
+  // blit
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(buf,0,0,W*S,H*S);
+  hud();
+}
+function txt(s,x,y,size,col,align='left',shadow=true){ctx.font=`700 ${size*S}px Silkscreen, "Courier New", monospace`;ctx.textAlign=align;ctx.textBaseline='top';if(shadow){ctx.fillStyle='rgba(12,11,28,.85)';ctx.fillText(s,x*S+S,y*S+S)}ctx.fillStyle=col;ctx.fillText(s,x*S,y*S)}
+function panel(x,y,w,h){ctx.fillStyle='rgba(21,19,43,.78)';ctx.fillRect(x*S,y*S,w*S,h*S);ctx.fillStyle='#37336a';ctx.fillRect(x*S,y*S,w*S,S);ctx.fillRect(x*S,(y+h-1)*S,w*S,S);ctx.fillRect(x*S,y*S,S,h*S);ctx.fillRect((x+w-1)*S,y*S,S,h*S)}
+function arrow(x,y,dir,len,col){ctx.fillStyle=col;const L=len;if(dir>=0){ctx.fillRect(x*S,(y+2)*S,L*S,S);ctx.fillRect((x+L-2)*S,(y+1)*S,S,3*S);ctx.fillRect((x+L-3)*S,y*S,S,5*S)}else{ctx.fillRect(x*S,(y+2)*S,L*S,S);ctx.fillRect((x+1)*S,(y+1)*S,S,3*S);ctx.fillRect((x+2)*S,y*S,S,5*S)}}
+function hud(){
+  // ruler labels
+  for(let mm=Math.max(0,Math.ceil((camY-20)/100)*5);mm*20<=camY+H;mm+=5){const y=sy(mm*20);if(y<4||y>H-6)continue;txt(mm+'',W-10,y-3,5,mm%10===0?'#ffd34e':'#f3eedd','right')}
+  if(mode==='title'){
+    ctx.fillStyle='rgba(21,19,43,.55)';ctx.fillRect(0,0,W*S,H*S);
+    txt('GALE',W/2,30,22,'#f3eedd','center');txt('TOWER',W/2,54,22,'#d8704f','center');
+    txt('LAY A BRICK UNDER YOUR FEET. CLIMB.',W/2,86,7,'#f3eedd','center');
+    txt('LEAN INTO THE WIND. DON\'T TOPPLE.',W/2,97,7,'#f3eedd','center');
+    if(Math.floor(t*2)%2||reduce)txt('PRESS SPACE OR TAP BUILD',W/2,120,8,'#ffd34e','center');
+    if(best>0)txt('BEST '+best.toFixed(1)+' M',W/2,138,7,'#aaa4cb','center');
+    return;
+  }
+  // height
+  panel(4,4,70,26);txt('HEIGHT',8,7,5,'#aaa4cb');txt(heightM().toFixed(1)+' M',8,14,10,'#f3eedd');
+  txt('BEST '+Math.max(best,mode==='over'?0:heightM()).toFixed(1),44,7,5,'#aaa4cb');
+  // wind
+  panel(W-96,4,92,34);txt('WIND',W-92,7,5,'#aaa4cb');
+  arrow(W-92,15,Math.sign(wind.target),Math.round(6+Math.abs(weff)*5),'#3ec9c0');
+  txt('BFT '+bft(wind.target)+' · '+kmh(weff)+' KM/H',W-60,15,5,'#f3eedd');
+  const nz=(zone+1)*10;txt('AT '+nz+' M',W-92,27,5,'#aaa4cb');arrow(W-62,27,Math.sign(next),8,'#ffd34e');txt('BFT '+bft(next),W-50,27,5,'#ffd34e');
+  // sway meter
+  const s=mode==='play'?st.s:0;panel(4,H-20,80,16);txt('SWAY',8,H-16,5,'#aaa4cb');
+  ctx.fillStyle='#0f0e22';ctx.fillRect(32*S,(H-15)*S,48*S,6*S);ctx.fillStyle=stressCol(s);ctx.fillRect(32*S,(H-15)*S,Math.round(48*clamp(s,0,1))*S,6*S);
+  if(s>1&&Math.floor(t*12)%2){ctx.fillStyle='#ff5a4e';ctx.fillRect(32*S,(H-15)*S,48*S,6*S)}
+  ctx.fillStyle='#f3eedd';ctx.fillRect(Math.round(32+48*.85)*S,(H-16)*S,S,8*S);
+  // until next band
+  const left=(ZONE-((bricks.length-1)%ZONE))/5;panel(88,H-20,66,16);txt('BAND IN '+left.toFixed(1)+' M',92,H-16,5,'#aaa4cb');
+  if(muted)txt('MUTED',W-6,H-10,5,'#aaa4cb','right');
+  if(banner){const a=clamp(banner.t,0,1);ctx.globalAlpha=a;panel(W/2-70,58,140,30);txt(banner.text,W/2,63,8,'#ffd34e','center');arrow(W/2-36,76,Math.sign(banner.v),10,'#3ec9c0');txt('BFT '+bft(banner.v)+' '+kmh(banner.v)+' KM/H',W/2-22,76,6,'#f3eedd');ctx.globalAlpha=1}
+  if(mode==='paused'){ctx.fillStyle='rgba(21,19,43,.6)';ctx.fillRect(0,0,W*S,H*S);txt('PAUSED',W/2,70,16,'#f3eedd','center');txt('SPACE OR TAP TO GO ON',W/2,96,7,'#ffd34e','center')}
+  if(mode==='over'&&overT>.9){ctx.fillStyle='rgba(21,19,43,'+Math.min(.65,(overT-.9)*1.5)+')';ctx.fillRect(0,0,W*S,H*S);
+    txt(reason,W/2,46,12,'#ff8a3d','center');txt(final.toFixed(1)+' M',W/2,68,22,'#f3eedd','center');
+    txt(final>=best&&best>0?'NEW BEST!':'BEST '+best.toFixed(1)+' M',W/2,98,7,'#ffd34e','center');
+    if(overT>1.5)txt('SPACE OR TAP TO BUILD AGAIN',W/2,118,7,'#f3eedd','center')}
+}
+
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);draw(dt);requestAnimationFrame(frame)}
+(document.fonts&&document.fonts.load?document.fonts.load('700 24px Silkscreen').catch(()=>{}):Promise.resolve()).finally(()=>requestAnimationFrame(frame));
+})();
+</script>
